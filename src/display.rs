@@ -31,7 +31,7 @@ pub struct DisplayData {
 }
 
 impl DisplayData {
-    fn get_tree_chars(&self, was_i_last: bool, has_children: bool) -> &'static str {
+    fn get_simple_tree_chars(&self, was_i_last: bool, has_children: bool) -> &'static str {
         match (self.is_reversed, was_i_last, has_children) {
             (true, true, true) => "┌─┴",
             (true, true, false) => "┌──",
@@ -42,6 +42,21 @@ impl DisplayData {
             (false, false, true) => "├─┬",
             (false, false, false) => "├──",
         }
+    }
+
+    fn get_tree_chars(&self, was_i_last: bool, has_children: bool, size: u64) -> String {
+        let ss = self.get_simple_tree_chars(was_i_last, has_children);
+        if size < 1024u64.pow(3)  {
+            return ss.into();
+        }
+        let mut s:String = ss.into();
+        s = s.replace('├', "╠");
+        s = s.replace('─', "═");
+        s = s.replace('└', "╚");
+        s = s.replace('┌', "╔");
+        s = s.replace('┴', "╩");
+        s = s.replace('┬', "╦");
+        return s.into();
     }
 
     fn is_biggest(&self, num_siblings: usize, max_siblings: u64) -> bool {
@@ -77,9 +92,9 @@ struct DrawData<'a> {
 }
 
 impl DrawData<'_> {
-    fn get_new_indent(&self, has_children: bool, was_i_last: bool) -> String {
-        let chars = self.display_data.get_tree_chars(was_i_last, has_children);
-        self.indent.to_string() + chars
+    fn get_new_indent(&self, has_children: bool, was_i_last: bool, size: u64) -> String {
+        let chars = self.display_data.get_tree_chars(was_i_last, has_children, size);
+        self.indent.to_string() + &chars
     }
 
     // TODO: can we test this?
@@ -179,7 +194,7 @@ fn find_longest_dir_name(
 
 fn display_node(node: DisplayNode, draw_data: &DrawData, is_biggest: bool, is_last: bool) {
     // hacky way of working out how deep we are in the tree
-    let indent = draw_data.get_new_indent(!node.children.is_empty(), is_last);
+    let indent = draw_data.get_new_indent(!node.children.is_empty(), is_last, node.size);
     let level = ((indent.chars().count() - 1) / 2) - 1;
     let bar_text = draw_data.generate_bar(&node, level);
 
@@ -231,6 +246,19 @@ fn clean_indentation_string(s: &str) -> String {
     is = is.replace("─┬", " ");
     // For both
     is = is.replace("├──", "│ ");
+
+    // For reversed:
+    is = is.replace("╔═╩", "  ");
+    is = is.replace("╔══","  ");
+    is = is.replace("╠═╩", "║ ");
+    is = is.replace("═╩", " ");
+    // For normal
+    is = is.replace("╚═╦", "  ");
+    is = is.replace("╚══", "  ");
+    is = is.replace("╠═╦", "║ ");
+    is = is.replace("═╦", " ");
+    // For both
+    is = is.replace("╠══", "║ ");
     is
 }
 
